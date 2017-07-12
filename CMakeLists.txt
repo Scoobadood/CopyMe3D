@@ -32,7 +32,8 @@ target_link_libraries(CopyMe3D ${OpenCV_LIBS})
     
 # And freenect2
 find_package(freenect2 REQUIRED)
-target_link_libraries(CopyMe3D ${FREENECT2_LIBRARIES})
+include_directories(${freenect2_INCLUDE_DIRS})
+target_link_libraries(CopyMe3D ${freenect2_LIBRARIES})
 
 # And OpenNI
 #set(OPENNI_INCLUDE_DIR "/usr/include/openni2")
