@@ -1,2 +1,5 @@
-# KinectAvatar
-Attempt to recreate KinectAvatar paper by Yan Cui, Will Chang, Tobias Nöll, Didier Stricker
+# CopyMe3D:Scanning and Printing Persons in 3D
+This is an attemt to recreate the CopyMe3D paper by Jurgen Sturm, Erik Bylow, Fredrik Kahl, Daniel Cremers
+
+## Prereqs
+This builds on Ubuntu 16 and depends on libfreenect
