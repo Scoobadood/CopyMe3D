@@ -30,9 +30,9 @@ find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS}) # Not needed for CMake >= 2.8.11
 target_link_libraries(CopyMe3D ${OpenCV_LIBS})
     
-# And libfreenect
-find_package(libfreenect REQUIRED)
-target_link_libraries(CopyMe3D ${FREENECT_LIBRARIES})
+# And freenect2
+find_package(freenect2 REQUIRED)
+target_link_libraries(CopyMe3D ${FREENECT2_LIBRARIES})
 
 # And OpenNI
 #set(OPENNI_INCLUDE_DIR "/usr/include/openni2")
