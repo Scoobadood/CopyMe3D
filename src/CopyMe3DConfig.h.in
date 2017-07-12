@@ -1,0 +1,3 @@
+// the configured options and settings forKinectAvatar 
+#define VERSION_MAJOR @KinectAvatar_VERSION_MAJOR@
+#define VERSION_MINOR @KinectAvatar_VERSION_MINOR@
