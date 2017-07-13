@@ -7,6 +7,15 @@
 
 #include "CopyMe3DConfig.h"
 
+
+bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth ) {
+
+	// Insert processing code
+
+	return true;
+}
+
+
 /*
  * Detect and open Kinect
  * Repeatedly read de
@@ -22,28 +31,44 @@ int main( int argc, const char * argv[] ) {
 		PacketPipeline * pipeline = new CpuPacketPipeline( );
 		Freenect2Device * dev = freenect2.openDevice( deviceSerial, pipeline );
 
-		int types = Frame::Color | Frame::Ir | Frame::Depth;
+		int types = Frame::Color | Frame::Depth;
   		SyncMultiFrameListener listener(types);
 
   		FrameMap frames;
   		dev->setColorFrameListener(&listener);
   		dev->setIrAndDepthFrameListener(&listener);
 
+		// Set up for registration
+		Registration* registration = new Registration( dev->getIrCameraParams(), dev->getColorCameraParams() );
+		Frame undistortedDepth( 512, 424, 4 );
+		Frame registeredColour( 512, 424, 4 );
+
 		// Start the device
 		if( dev -> start( ) ) {
-			// Wait for frames
-			if ( !listener.waitForNewFrame( frames, 10*1000 ) )  {// 10 sconds
-				Frame * rgb = frames[ Frame::Color];
-				Frame * ir = frames[ Frame::Ir];
-				Frame * depth = frames[ Frame::Depth];
 
-				listener.release( frames );
+			// Loop until done or timed out
+			bool done = false;
+			while( !done ) {
+				// Wait for frames
+				if ( listener.waitForNewFrame( frames, 10*1000 ) )  {// 10 sconds
+					Frame * rgb = frames[ Frame::Color];
+					Frame * depth = frames[ Frame::Depth];
+
+					// Register frames
+					registration->apply(rgb, depth, &undistortedDepth, &registeredColour);
+
+					// Process images
+					done = process( registeredColour, undistortedDepth );
+
+					listener.release( frames );
+				}
+
+				// No frames in time
+				else {
+					std::cout << "timeout!" << std::endl;
+					done = true;
+	     		}
 			}
-
-			// No frames in time
-			else {
-				std::cout << "timeout!" << std::endl;
-     		}
 			dev->stop();
 		}
 
