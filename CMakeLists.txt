@@ -1,5 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 
+set (CMAKE_CXX_STANDARD 11)
+
 project( CopyMe3D )
 set (CopyMe3D_VERSION_MAJOR 1)
 set (CopyMe3D_VERSION_MINOR 0)
@@ -35,24 +37,22 @@ find_package(freenect2 REQUIRED)
 include_directories(${freenect2_INCLUDE_DIRS})
 target_link_libraries(CopyMe3D ${freenect2_LIBRARIES})
 
+# And Eigen3
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+# And CUDA
+find_package( CUDA REQUIRED )
+include_directories(${CUDA_INCLUDE_DIRS})
+# Pass options to NVCC
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -std=c++11 )
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 -gencode arch=compute_52,code=sm_52)
+set(CUDA_SEPARABLE_COMPILATION ON)
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+set(CUDA_VERBOSE_BUILD ON)
+
 # Add TSDF
 include_directories( ${CMAKE_SOURCE_DIR}/../libsdf/include)
 target_link_libraries(CopyMe3D ${CMAKE_SOURCE_DIR}/../libsdf/library/libsdf.a)
-# And OpenNI
-#set(OPENNI_INCLUDE_DIR "/usr/include/openni2")
-#include_directories( "${OPENNI_INCLUDE_DIR}" )
 
-#set(OPENNI_LIB_DIR "/usr/lib")
-#link_directories( "${OPENNI_LIB_DIR}" )
-#find_library( OPENNI2 libOpenNI2.so )
-
-# Link with OpenNI libs
-# target_link_libraries( FaceOff "${OPENNI2}" )
-
-
-# Copy Haar cascade data on successful build
-#message( ${OpenCV_CONFIG_PATH} )
-#add_custom_command( TARGET FaceOff POST_BUILD
-#                    COMMAND mkdir -p $<TARGET_FILE_DIR:FaceOff>/data && cp -R ${OpenCV_CONFIG_PATH}/haarcascades/*.xml
-#                   $<TARGET_FILE_DIR:FaceOff>/data )
 
