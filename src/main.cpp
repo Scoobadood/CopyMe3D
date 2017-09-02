@@ -9,13 +9,12 @@
 
 #include "libsdf/TSDFVolume.hpp"
 
-bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth ) {
+bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume & volume ) {
 
-	// Insert processing code
-
-	return true;
+    // Insert processing code
+        
+    return true;
 }
-
 
 /*
  * Detect and open Kinect
@@ -23,67 +22,64 @@ bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth 
 */
 
 int main( int argc, const char * argv[] ) {
-	using namespace libfreenect2;
+    using namespace libfreenect2;
+    
+    // Enumerate Kinect devices
+    Freenect2 freenect2;
+    if( freenect2.enumerateDevices( ) == 0 ) {
+        std::cout << "No devices found" << std::endl;
+        exit( -1 );
+    }
+    
+    std::string deviceSerial = freenect2.getDefaultDeviceSerialNumber( );
+    PacketPipeline * pipeline = new CpuPacketPipeline( );
+    Freenect2Device * dev = freenect2.openDevice( deviceSerial, pipeline );
 
-	// Enumerate Kinect devices
-	Freenect2 freenect2;
-	if( freenect2.enumerateDevices( ) != 0 ) {
-		std::string deviceSerial = freenect2.getDefaultDeviceSerialNumber( );
-		PacketPipeline * pipeline = new CpuPacketPipeline( );
-		Freenect2Device * dev = freenect2.openDevice( deviceSerial, pipeline );
+    int types = Frame::Color | Frame::Depth;
+    SyncMultiFrameListener listener(types);
 
-		int types = Frame::Color | Frame::Depth;
-  		SyncMultiFrameListener listener(types);
+    FrameMap frames;
+    dev->setColorFrameListener(&listener);
+    dev->setIrAndDepthFrameListener(&listener);
 
-  		FrameMap frames;
-  		dev->setColorFrameListener(&listener);
-  		dev->setIrAndDepthFrameListener(&listener);
+    // Set up for registration
+    Registration* registration = new Registration( dev->getIrCameraParams(), dev->getColorCameraParams() );
+    Frame undistortedDepth( 512, 424, 4 );
+    Frame registeredColour( 512, 424, 4 );
 
-		// Set up for registration
-		Registration* registration = new Registration( dev->getIrCameraParams(), dev->getColorCameraParams() );
-		Frame undistortedDepth( 512, 424, 4 );
-		Frame registeredColour( 512, 424, 4 );
 
-		// Start the device
-		if( dev -> start( ) ) {
+    // Start the device
+    if( !(dev -> start( ) ) ) {
+        std::cout << "Couldn't start device" << std::endl;
+    }
 
-			// Loop until done or timed out
-			bool done = false;
-			while( !done ) {
-				// Wait for frames
-				if ( listener.waitForNewFrame( frames, 10*1000 ) )  {// 10 sconds
-					Frame * rgb = frames[ Frame::Color];
-					Frame * depth = frames[ Frame::Depth];
+    // Grab fames and process
+    TSDFVolume volume{256, 256, 256, 1500.0f, 1500.0f, 1500.0f};
 
-					// Register frames
-					registration->apply(rgb, depth, &undistortedDepth, &registeredColour);
+    // Loop until done or timed out
+    bool done = false;
+    while( !done ) {
+        // Wait for frames
+        if ( listener.waitForNewFrame( frames, 10*1000 ) )  {// 10 sconds
+            Frame * rgb = frames[ Frame::Color];
+            Frame * depth = frames[ Frame::Depth];
 
-					// Process images
-					done = process( registeredColour, undistortedDepth );
+            // Register frames
+            registration->apply(rgb, depth, &undistortedDepth, &registeredColour);
 
-					listener.release( frames );
-				}
+            // Process images
+            done = process( registeredColour, undistortedDepth, volume );
 
-				// No frames in time
-				else {
-					std::cout << "timeout!" << std::endl;
-					done = true;
-	     		}
-			}
-			dev->stop();
-		}
+            listener.release( frames );
+        }
+        // No frames in time
+        else {
+            std::cout << "timeout!" << std::endl;
+                done = true;
+        }
+    }
+    dev->stop();
 
-		// Device didn;t start
-		else {
-			std::cout << "Couldn't start device" << std::endl;
-		}
-		// Close device
-		dev -> close( );
-	}
-
-	// Else no devices found
-	else {
-		std::cout << "No devices found" << std::endl;
-	}
-
+    // Close device
+    dev -> close( );
 }
