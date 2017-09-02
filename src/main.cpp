@@ -7,6 +7,7 @@
 
 #include "CopyMe3DConfig.h"
 
+#include "libsdf/TSDFVolume.hpp"
 
 bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth ) {
 

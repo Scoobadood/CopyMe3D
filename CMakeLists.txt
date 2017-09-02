@@ -35,6 +35,9 @@ find_package(freenect2 REQUIRED)
 include_directories(${freenect2_INCLUDE_DIRS})
 target_link_libraries(CopyMe3D ${freenect2_LIBRARIES})
 
+# Add TSDF
+include_directories( ${CMAKE_SOURCE_DIR}/../libsdf/include)
+target_link_libraries(CopyMe3D ${CMAKE_SOURCE_DIR}/../libsdf/library/libsdf.a)
 # And OpenNI
 #set(OPENNI_INCLUDE_DIR "/usr/include/openni2")
 #include_directories( "${OPENNI_INCLUDE_DIR}" )

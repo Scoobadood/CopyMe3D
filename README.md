@@ -3,3 +3,7 @@ This is an attemt to recreate the CopyMe3D paper by Jurgen Sturm, Erik Bylow, Fr
 
 ## Prereqs
 This builds on Ubuntu 16 and depends on libfreenect
+
+## TODO
+Need to ensure we can compile and link using libsdf
+
