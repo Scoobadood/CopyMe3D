@@ -1,10 +1,10 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.8 FATAL_ERROR)
 
-set (CMAKE_CXX_STANDARD 11)
+project( CopyMe3D
+         VERSION 0.1 
+         LANGUAGES CXX CUDA)
 
-project( CopyMe3D )
-set (CopyMe3D_VERSION_MAJOR 1)
-set (CopyMe3D_VERSION_MINOR 0)
+message( "Source directory is ${CMAKE_SOURCE_DIRECTORY}")
 
 # Add the binary tree to the search path for inlcude files
 include_directories( "src")
@@ -23,6 +23,10 @@ configure_file (
 # Add the binary tree to the search path for inlcude files
 file(GLOB SOURCES "src/*.cpp")
 
+
+
+
+# Building the executable
 add_executable(CopyMe3D ${SOURCES})
 
 
@@ -44,15 +48,18 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 # And CUDA
 find_package( CUDA REQUIRED )
 include_directories(${CUDA_INCLUDE_DIRS})
-# Pass options to NVCC
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -std=c++11 )
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}; -O3 -gencode arch=compute_52,code=sm_52)
-set(CUDA_SEPARABLE_COMPILATION ON)
-set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-set(CUDA_VERBOSE_BUILD ON)
+#set(CMAKE_CUDA_FLAGS "-cudart static")
+
+
+# And libpng
+find_package( PNG REQUIRED )
+include_directories(${PNG_INCLUDE_DIRECTORIES})
+
+target_compile_features(CopyMe3D PUBLIC cxx_std_11)
+set_target_properties( CopyMe3D PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 # Add TSDF
 include_directories( ${CMAKE_SOURCE_DIR}/../libsdf/include)
-target_link_libraries(CopyMe3D ${CMAKE_SOURCE_DIR}/../libsdf/library/libsdf.a)
+target_link_libraries(CopyMe3D ${CMAKE_SOURCE_DIR}/../libsdf/library/libsdf.a ${CUDA_LIBRARIES} ${PNG_LIBRARIES})
 
 
