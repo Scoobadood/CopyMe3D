@@ -9,9 +9,25 @@
 
 #include "libsdf/TSDFVolume.hpp"
 
+uint16_t* freenect2_depth_frame_to_uint16( const libfreenect2::Frame& depth ) {
+    // Should be 512x424 but lets not assume
+    size_t num_values = depth.width * depth.height;
+
+    uint16_t * new_buffer= new uint16_t[num_values];
+    for( int i=0; i<num_values; i++ ) {
+        // Values are already mm so just convert to uint16
+        new_buffer[i] = (uint16_t)depth.data[i];
+
+    }
+    return new_buffer;
+}
+
 bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume & volume ) {
 
+    Camera *camera = Camera::default_depth_camera( );
     // Insert processing code
+    uint16_t * depth_buffer = freenect2_depth_frame_to_uint16( depth );
+    volume.integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, *camera );
         
     return true;
 }
@@ -82,4 +98,6 @@ int main( int argc, const char * argv[] ) {
 
     // Close device
     dev -> close( );
+
+    
 }
