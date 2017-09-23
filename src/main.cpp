@@ -29,6 +29,7 @@ bool process( const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth 
     uint16_t * depth_buffer = freenect2_depth_frame_to_uint16( depth );
     volume.integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, *camera );
         
+    delete [] depth_buffer'
     return true;
 }
 
