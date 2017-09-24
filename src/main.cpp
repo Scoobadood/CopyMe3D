@@ -36,18 +36,19 @@ uint16_t* freenect2_depth_frame_to_uint16( const libfreenect2::Frame& depth ) {
 /**
  * Render the TSDF to PNG files for scene and normal
  */
-void render( const Camera& camera, const TSDFVolume & volume) {
+void render(const TSDFVolume * volume) {
         Eigen::Matrix< float, 3, Eigen::Dynamic> vertices;
         Eigen::Matrix< float, 3, Eigen::Dynamic> normals;
 
         std::cout << "Raycasting" << std::endl;
 
-        volume.raycast( 512, 424, camera, vertices, normals );
+        Camera * camera = Camera::default_depth_camera( );
+        volume->raycast( 512, 424, *camera, vertices, normals );
 
         std::cout << "Rendering to image " << std::endl;
         Eigen::Vector3f light_source { 0,0,-1000 };
 
-        PngWrapper *p = scene_as_png( 512, 424, vertices, normals, camera, light_source );
+        PngWrapper *p = scene_as_png( 512, 424, vertices, normals, *camera, light_source );
 
         std::cout << "Saving PNG" << std::endl;
         p->save_to("/home/dave/Desktop/scene.png");
@@ -119,7 +120,7 @@ void save_frame_as_png( uint32_t width, uint32_t height, const uint16_t * frameD
     delete wrapper;
 }
 
-bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume & volume ) {
+bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume * volume ) {
     static int frames=10;
 
     dumpFrameData( "Undistorted Depth", depth );
@@ -143,7 +144,7 @@ bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfr
     sprintf( file_name, "/home/dave/Desktop/depth_%d.png", 10-frames );
     save_frame_as_png( depth.width, depth.height, depth_buffer, file_name );
 
-    volume.integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, camera );
+    volume->integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, camera );
         
     delete [] depth_buffer;
 
@@ -152,7 +153,11 @@ bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfr
 }
 
 
+/**
+ * Dump the IR Camera parameters to console
+ */
 void dumpIRParams( const libfreenect2::Freenect2Device::IrCameraParams& irParams) {
+    std::cout << "IR Camera Parameters\n--------------------" << std::endl;
     std::cout << "fx   : " << irParams.fx << std::endl;
     std::cout << "fy   : " << irParams.fy << std::endl;
     std::cout << "cx   : " << irParams.cx << std::endl;
@@ -165,7 +170,11 @@ void dumpIRParams( const libfreenect2::Freenect2Device::IrCameraParams& irParams
 }
 
 
+/**
+ * Dump the ColourIR Camera parameters to console
+ */
 void dumpColourParams( const libfreenect2::Freenect2Device::ColorCameraParams& colorParams) {
+    std::cout << "Colour Camera Parameters\n------------------------" << std::endl;
     std::cout << "fx   : " << colorParams.fx << std::endl;
     std::cout << "fy   : " << colorParams.fy << std::endl;
     std::cout << "cx   : " << colorParams.cx << std::endl;
@@ -174,49 +183,63 @@ void dumpColourParams( const libfreenect2::Freenect2Device::ColorCameraParams& c
 
 
 
-/*
- * Detect and open Kinect
- * Repeatedly read de
-*/
-
-int main( int argc, const char * argv[] ) {
+/**
+ * Find and start the default device
+ */
+bool  findAndStartDevice( libfreenect2::Freenect2& freenect2, libfreenect2::Freenect2Device* &device, libfreenect2::PacketPipeline* &pipeline, libfreenect2::SyncMultiFrameListener& listener) {
     using namespace libfreenect2;
     
     // Enumerate Kinect devices
-    Freenect2 freenect2;
     if( freenect2.enumerateDevices( ) == 0 ) {
         std::cout << "No devices found" << std::endl;
-        return( -1 );
+        return( false);
     }
     
     std::string deviceSerial = freenect2.getDefaultDeviceSerialNumber( );
-    PacketPipeline * pipeline = new CpuPacketPipeline( );
-    Freenect2Device * dev = freenect2.openDevice( deviceSerial, pipeline );
+    pipeline = new CpuPacketPipeline( );
+    device = freenect2.openDevice( deviceSerial, pipeline );
 
-    int types = Frame::Color | Frame::Depth;
-    SyncMultiFrameListener listener(types);
-
-    FrameMap frames;
-    dev->setColorFrameListener(&listener);
-    dev->setIrAndDepthFrameListener(&listener);
+    device->setColorFrameListener(&listener);
+    device->setIrAndDepthFrameListener(&listener);
 
    
 
     // Start the device
-    if( !(dev -> start( ) ) ) {
+    if( !(device -> start( ) ) ) {
         std::cout << "Couldn't start device" << std::endl;
-        return -1;
+        delete pipeline;
+        pipeline = NULL;
+        delete device;
+        device = NULL;
+        return false;
     }
 
 
-    // Set up for registration: MUST BE CALLED AFTER start
-    Freenect2Device::IrCameraParams irParams = dev->getIrCameraParams( );
-    Freenect2Device::ColorCameraParams colorParams = dev->getColorCameraParams() ;
+    return true;
+}
 
-    // Set p registration
-    Registration* registration = new Registration( irParams, colorParams );
+libfreenect2::Registration * setupRegistration( libfreenect2::Freenect2Device* device ) {
+    using namespace libfreenect2;
+
+    Freenect2Device::IrCameraParams irParams = device->getIrCameraParams( );
+    Freenect2Device::ColorCameraParams colorParams = device->getColorCameraParams() ;
+    return new Registration( irParams, colorParams );
+}
 
 
+
+TSDFVolume * buildSDF( libfreenect2::SyncMultiFrameListener& listener, libfreenect2::Registration * registration ) {
+using namespace libfreenect2;
+
+    TSDFVolume * volume = new TSDFVolume( 256, 256, 256, 1500.0f, 1500.0f, 1500.0f);
+
+    volume->offset( -750, -750, 0);
+
+    Camera * camera = Camera::default_depth_camera( );
+
+    // Loop until done or timed out
+    bool done = false;
+    FrameMap frames;
     // Registered image storage
     Frame undistortedDepth( 512, 424, 4 );
     undistortedDepth.format = Frame::Float;
@@ -224,14 +247,6 @@ int main( int argc, const char * argv[] ) {
     registeredColour.format = Frame::BGRX;
 
 
-    // Grab fames and process
-    TSDFVolume volume{256, 256, 256, 1500.0f, 1500.0f, 1500.0f};
-    volume.offset( -750, -750, 0);
-
-    Camera * camera = Camera::default_depth_camera( );
-
-    // Loop until done or timed out
-    bool done = false;
     while( !done ) {
         // Wait for frames
         if ( listener.waitForNewFrame( frames, 10*1000 ) )  {// 10 sconds
@@ -252,17 +267,43 @@ int main( int argc, const char * argv[] ) {
                 done = true;
         }
     }
-    dev->stop();
 
-    // Close device
+    return volume;
+}
+
+
+int main( int argc, const char * argv[] ) {
+    using namespace libfreenect2;
+
+    Freenect2 freenect2;
+    
+    PacketPipeline * pipeline;
+    Freenect2Device * dev;
+    int types = Frame::Color | Frame::Depth;
+    SyncMultiFrameListener listener(types);
+
+
+    if ( !findAndStartDevice( freenect2, dev, pipeline, listener) ) {
+        return -1;
+    }
+
+
+    // Set up for registration: MUST BE CALLED AFTER start
+    Registration* registration = setupRegistration( dev );
+
+
+    // Grab frames and process
+    TSDFVolume *volume = buildSDF( listener, registration);
+
+    // Finish with device
+    dev->stop();
     dev -> close( );
 
 
-    render( *camera, volume );    
+    render( volume );    
 
-    delete camera;
-
-    volume.save_to_file("/home/dave/tsdf.dat");
+    volume->save_to_file("/home/dave/tsdf.dat");
+    delete volume;
 }
 
 
