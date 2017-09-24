@@ -25,7 +25,6 @@ file(GLOB SOURCES "src/*.cpp")
 
 
 
-
 # Building the executable
 add_executable(CopyMe3D ${SOURCES})
 
