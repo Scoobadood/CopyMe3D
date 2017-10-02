@@ -11,6 +11,7 @@
 #include "libsdf/PngWrapper.hpp"
 #include "RenderUtilities.hpp"   // For scene as png
 
+
 const uint16_t VOXEL_DIM=400;
 const float    SPACE_DIM=4000.0f;
 const int      FRAMES_TO_CAPTURE=40;
