@@ -11,7 +11,9 @@
 #include "libsdf/PngWrapper.hpp"
 #include "RenderUtilities.hpp"   // For scene as png
 
-
+const uint16_t VOXEL_DIM=400;
+const float    SPACE_DIM=4000.0f;
+const int      FRAMES_TO_CAPTURE=40;
 
 /**
  * Convert a freenect depth buffer (float) to a uint16 depth buffer
@@ -120,38 +122,6 @@ void save_frame_as_png( uint32_t width, uint32_t height, const uint16_t * frameD
     delete wrapper;
 }
 
-bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume * volume ) {
-    static int frames=10;
-
-    dumpFrameData( "Undistorted Depth", depth );
-
-
-    // Insert processing code
-    uint16_t * depth_buffer = freenect2_depth_frame_to_uint16( depth );
-
-
-    // Min Max depth_buffer
-    uint16_t min, max;
-    min = max = depth_buffer[0];
-    for( int i=0; i<depth.width * depth.height; i++ ) {
-        if( min > depth_buffer[i]) min = depth_buffer[i];
-        if( max < depth_buffer[i]) max = depth_buffer[i];
-    }
-    std::cout << "After conversion min: " << min << " , max : " << max << std::endl;
-
-
-    char file_name[300];
-    sprintf( file_name, "/home/dave/Desktop/depth_%d.png", 10-frames );
-    save_frame_as_png( depth.width, depth.height, depth_buffer, file_name );
-
-    volume->integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, camera );
-        
-    delete [] depth_buffer;
-
-    frames--;
-    return ( frames == 0 );
-}
-
 
 /**
  * Dump the IR Camera parameters to console
@@ -226,14 +196,33 @@ libfreenect2::Registration * setupRegistration( libfreenect2::Freenect2Device* d
     return new Registration( irParams, colorParams );
 }
 
+/*
+ * Process each new incoming pair of registered images
+ */
+bool process( const Camera& camera, const libfreenect2::Frame&  rgb, const libfreenect2::Frame& depth , TSDFVolume * volume ) {
+    static int frames=FRAMES_TO_CAPTURE;
 
+    // Insert processing code
+    uint16_t * depth_buffer = freenect2_depth_frame_to_uint16( depth );
+
+    char filename[300];
+    sprintf( filename, "depth_image_%d.png", 10-frames);
+    save_frame_as_png( depth.width, depth.height, depth_buffer, filename ); 
+    //Merge into volume
+    volume->integrate( depth_buffer, (uint32_t) depth.width, (uint32_t) depth.height, camera );
+        
+    delete [] depth_buffer;
+
+    frames--;
+    return ( frames == 0 );
+}
 
 TSDFVolume * buildSDF( libfreenect2::SyncMultiFrameListener& listener, libfreenect2::Registration * registration ) {
 using namespace libfreenect2;
 
-    TSDFVolume * volume = new TSDFVolume( 256, 256, 256, 1500.0f, 1500.0f, 1500.0f);
+    TSDFVolume * volume = new TSDFVolume( VOXEL_DIM, VOXEL_DIM, VOXEL_DIM, SPACE_DIM, SPACE_DIM, SPACE_DIM );
 
-    volume->offset( -750, -750, 0);
+    volume->offset( -SPACE_DIM/2.0f, -SPACE_DIM/2.0f, 0);
 
     Camera * camera = Camera::default_depth_camera( );
 
@@ -272,6 +261,9 @@ using namespace libfreenect2;
 }
 
 
+
+
+
 int main( int argc, const char * argv[] ) {
     using namespace libfreenect2;
 
@@ -299,10 +291,10 @@ int main( int argc, const char * argv[] ) {
     dev->stop();
     dev -> close( );
 
+    volume->save_to_file("/home/dave/Desktop/tsdf.dat");
 
     render( volume );    
 
-    volume->save_to_file("/home/dave/tsdf.dat");
     delete volume;
 }
 

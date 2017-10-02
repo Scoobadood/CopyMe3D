@@ -47,7 +47,7 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 # And CUDA
 find_package( CUDA REQUIRED )
 include_directories(${CUDA_INCLUDE_DIRS})
-#set(CMAKE_CUDA_FLAGS "-cudart static")
+set(CMAKE_CUDA_FLAGS "-g -G -O0")
 
 
 # And libpng
